@@ -346,9 +346,6 @@ ENV.raw <- read.csv('XX.csv',row.names = 'Sites')
     
   t1$res_process
     
-  write.table(t1$res_process,'clipboard',sep='\t')
-    
-    
   #Fig.4g-j: Meta-community, distance decay relationship ####
   #Standardized estimates for Eukaryotes and Bacteria overall ####
   fit_model <- function(Euka.mt, Proka.mt, month_name, Y) {
@@ -358,7 +355,7 @@ ENV.raw <- read.csv('XX.csv',row.names = 'Sites')
     Euka.dis <- as.vector(vegdist(t(log(kingdom$otu_table+1)), method = 'bray'))
     Proka.dis <- as.vector(vegdist(t(log(Proka.mt$otu_table+1)), method = 'bray'))
     
-    # Environmental distance (assume columns 6+ are environmental factors)
+    # Environmental distance (assume after 6th columns are environmental factors)
     env_data <- Proka.mt$sample_table[,-c(1:5)]
     Env.dis <- as.vector(vegdist(scale(env_data, scale = TRUE, center = TRUE), method = 'euclidean'))
     
@@ -535,12 +532,12 @@ ENV.raw <- read.csv('XX.csv',row.names = 'Sites')
       Euka.dis <- vegdist(t(log(kingdom$otu_table+1)),method = 'bray')
       Proka.dis <- vegdist(t(log(Proka.mt$otu_table+1)),method = 'bray')
 
-      # the fist 5 col is not environmental variables
+      # Assume after the 6th column are environmental variables
       Env.dis <- vegdist(scale(Proka.mt$sample_table[,-c(1:5)],scale = TRUE,center = TRUE)
                          ,method = 'euclidean')
       
       
-      # the 2nd and 3rd col are coordinates
+      # Assume the 2nd and 3rd col are coordinates
       coordinates <- Proka.mt$sample_table[,c(2,3)] 
       # transform coordinates to numeric
       coordinates.num <- apply(coordinates, 2, as.numeric)
@@ -767,7 +764,7 @@ ENV.raw <- read.csv('XX.csv',row.names = 'Sites')
       rownames(Euka.mt$tax_table) <- OTU.Euka.new_names
       rownames(Euka.mt$tax_table)
   
-    # Combine the Proka and Euka
+    # Pool the Proka and Euka
     Pro.Eu_otu_table <- rbind(Proka.mt$otu_table,Euka.mt$otu_table)
     
       #log transform the abundance to reduce the effect of extreme values
@@ -800,8 +797,8 @@ ENV.raw <- read.csv('XX.csv',row.names = 'Sites')
     Aug_mt$sample_table <- subset(Aug_mt$sample_table,Month =='Aug')
     Aug_mt$tidy_dataset() # remove other sites
   
-    #3.2 CHOOSE ONE ####
-    # Here we need to choose one period to run the rest codes
+    # CHOOSE ONE ####
+    # Here we need to choose one hydroperiod to run the rest codes (Lines 805-998)
     mt.network <- clone(Jan_mt);title.month <- 'Jan'
     mt.network <- clone(Aug_mt);title.month <- 'Aug'
     
@@ -820,7 +817,7 @@ ENV.raw <- read.csv('XX.csv',row.names = 'Sites')
       
       # remove some connections
       Co_occur$cal_network(
-        COR_p_thres = 0.01       # p value = 0.01
+        COR_p_thres = 0.01       # p value cut = 0.01
         ,COR_cut = 0.8            # correlation cut = 0.8 
       )          
       Co_occur$res_network
@@ -1018,6 +1015,12 @@ legend("topright",
   
   Month <- Proka.mt$sample_table$Month
   
+  #CHOOSE ONE####
+  # Here we need to choose one hydroperiod to run the rest codes (Lines 1024-1145)
+  title.month='Jan'
+  title.month='Aug'
+  
+  # create a dataset for PLS-PM
   PLS.data <- function(title.month){
     
     Proka.mt_month <- clone(Proka.mt)
@@ -1091,7 +1094,7 @@ legend("topright",
   env_bio_p <- p_value_matrix[1:8, 9:12]
   
   # Env-Bio correlation matrix
-  corrplot(t(env_bio_cor_rm),
+  corrplot(t(env_bio_cor),
            method = "color",
            type = "full",
            tl.col = "black",
@@ -1122,7 +1125,9 @@ legend("topright",
   )
   group <- list(env = 1,Proka = 2:3,Euka = 4:5)
 
-  pls.data <- pls.data[,c('TP','Proka.PC1','Proka.richness','Euka.PC1_Euka','Euka.richness')]
+  # Here, need to replace the significant variables, e.g., DOC
+  env = 'DOC'
+  pls.data <- pls.data[,c(env,'Proka.PC1','Proka.richness','Euka.PC1_Euka','Euka.richness')]
 
   innerplot(path, colpos = "red", arr.width = 0.1)
 
@@ -1130,14 +1135,11 @@ legend("topright",
   
   # PLS-PM
   sat.pls <- plspm( Data = pls.data
-                    ,path_matrix = path      # path of the model
-                    ,blocks = group  # latent group
+                    ,path_matrix = path # path of the model
+                    ,blocks = group     # latent group
                     ,modes = rep('A',3)
                     ,scaled = TRUE      # whether scale the data
                     ,boot.val = TRUE    # perform bootstrap validation
                     ,br=999
   )
   print(summary(sat.pls))
-  
-  PLS_Jan <- PLS('Jan');#saveRDS(PLS_Jan,'PLS_Jan_TN.rds')
-  PLS_Aug <- PLS('Aug');#saveRDS(PLS_Aug,'PLS_Aug_rm_TP.rds')
